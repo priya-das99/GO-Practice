@@ -1,0 +1,44 @@
+name: Daily Release
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Fetch Queue Branch
+        run: |
+          git fetch origin queue
+
+      - name: Get Next Commit
+        id: next
+        run: |
+          NEXT_COMMIT=$(git log origin/queue --reverse --format="%H" ^origin/main | head -n 1)
+          echo "commit=$NEXT_COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Cherry Pick
+        if: steps.next.outputs.commit != ''
+        run: |
+          git cherry-pick ${{ steps.next.outputs.commit }}
+
+      - name: Push
+        if: steps.next.outputs.commit != ''
+        run: |
+          git push origin HEAD:main
